@@ -1,0 +1,383 @@
+
+> server@1.0.0 test
+> NODE_ENV=test jest
+
+(node:27273) [MONGODB DRIVER] Warning: useNewUrlParser is a deprecated option: useNewUrlParser has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:27273) [MONGODB DRIVER] Warning: useUnifiedTopology is a deprecated option: useUnifiedTopology has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+FAIL tests/posts.test.js
+  ● Posts Endpoints › should create a post
+
+    TypeError: Cannot read properties of undefined (reading 'id')
+
+      40 |
+      41 |     token = res.body.token;
+    > 42 |     userId = res.body.user.id;
+         |                            ^
+      43 |   });
+      44 |
+      45 |   it('should create a post', async () => {
+
+      at Object.id (tests/posts.test.js:42:28)
+
+  ● Posts Endpoints › should not create a post without content
+
+    TypeError: Cannot read properties of undefined (reading 'id')
+
+      40 |
+      41 |     token = res.body.token;
+    > 42 |     userId = res.body.user.id;
+         |                            ^
+      43 |   });
+      44 |
+      45 |   it('should create a post', async () => {
+
+      at Object.id (tests/posts.test.js:42:28)
+
+  ● Posts Endpoints › should update own post
+
+    TypeError: Cannot read properties of undefined (reading 'id')
+
+      40 |
+      41 |     token = res.body.token;
+    > 42 |     userId = res.body.user.id;
+         |                            ^
+      43 |   });
+      44 |
+      45 |   it('should create a post', async () => {
+
+      at Object.id (tests/posts.test.js:42:28)
+
+  ● Posts Endpoints › should not update others post
+
+    TypeError: Cannot read properties of undefined (reading 'id')
+
+      40 |
+      41 |     token = res.body.token;
+    > 42 |     userId = res.body.user.id;
+         |                            ^
+      43 |   });
+      44 |
+      45 |   it('should create a post', async () => {
+
+      at Object.id (tests/posts.test.js:42:28)
+
+  ● Posts Endpoints › should delete own post
+
+    TypeError: Cannot read properties of undefined (reading 'id')
+
+      40 |
+      41 |     token = res.body.token;
+    > 42 |     userId = res.body.user.id;
+         |                            ^
+      43 |   });
+      44 |
+      45 |   it('should create a post', async () => {
+
+      at Object.id (tests/posts.test.js:42:28)
+
+  ● Posts Endpoints › should not delete others post
+
+    TypeError: Cannot read properties of undefined (reading 'id')
+
+      40 |
+      41 |     token = res.body.token;
+    > 42 |     userId = res.body.user.id;
+         |                            ^
+      43 |   });
+      44 |
+      45 |   it('should create a post', async () => {
+
+      at Object.id (tests/posts.test.js:42:28)
+
+  ● Posts Endpoints › should like a post
+
+    TypeError: Cannot read properties of undefined (reading 'id')
+
+      40 |
+      41 |     token = res.body.token;
+    > 42 |     userId = res.body.user.id;
+         |                            ^
+      43 |   });
+      44 |
+      45 |   it('should create a post', async () => {
+
+      at Object.id (tests/posts.test.js:42:28)
+
+  ● Posts Endpoints › should not like a post twice
+
+    TypeError: Cannot read properties of undefined (reading 'id')
+
+      40 |
+      41 |     token = res.body.token;
+    > 42 |     userId = res.body.user.id;
+         |                            ^
+      43 |   });
+      44 |
+      45 |   it('should create a post', async () => {
+
+      at Object.id (tests/posts.test.js:42:28)
+
+  ● Posts Endpoints › should fetch all posts
+
+    TypeError: Cannot read properties of undefined (reading 'id')
+
+      40 |
+      41 |     token = res.body.token;
+    > 42 |     userId = res.body.user.id;
+         |                            ^
+      43 |   });
+      44 |
+      45 |   it('should create a post', async () => {
+
+      at Object.id (tests/posts.test.js:42:28)
+
+FAIL tests/profile.test.js
+  ● Console
+
+    console.log
+      getProfile user: null
+
+      at log (controllers/userController.js:110:13)
+
+  ● User Profile Endpoints › should fetch the user profile
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 404
+
+      47 |       .set('Authorization', `Bearer ${token}`);
+      48 |
+    > 49 |     expect(res.statusCode).toBe(200);
+         |                            ^
+      50 |     expect(res.body).toHaveProperty('username', 'profileuser');
+      51 |     expect(res.body).toHaveProperty('email', 'profile@example.com');
+      52 |     expect(res.body).not.toHaveProperty('password');
+
+      at Object.toBe (tests/profile.test.js:49:28)
+
+  ● User Profile Endpoints › should update the user profile
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 404
+
+      65 |       .send(updateData);
+      66 |
+    > 67 |     expect(res.statusCode).toBe(200);
+         |                            ^
+      68 |     expect(res.body.user).toMatchObject(updateData);
+      69 |     expect(res.body).toHaveProperty('message', 'Profile updated successfully.');
+      70 |   });
+
+      at Object.toBe (tests/profile.test.js:67:28)
+
+PASS tests/app.test.js
+FAIL tests/follow.test.js
+  ● Console
+
+    console.log
+      User A: null
+
+      at Object.log (tests/follow.test.js:52:13)
+
+    console.log
+      User A: null
+
+      at Object.log (tests/follow.test.js:52:13)
+
+    console.log
+      User A: {
+        _id: new ObjectId('6853b5f6522eabb9460ce517'),
+        username: 'userA',
+        email: 'usera@example.com',
+        password: '$2b$10$GSFRzO.5Ys40.3IJpMhR4unNZkUjZBL0DkvF4lIuy9ON8KGMrwChm',
+        bio: '',
+        image: '',
+        skills: [],
+        followers: [],
+        following: [],
+        createdAt: 2025-06-19T07:02:14.863Z,
+        updatedAt: 2025-06-19T07:02:14.863Z,
+        __v: 0
+      }
+
+      at Object.log (tests/follow.test.js:52:13)
+
+    console.log
+      User B: {
+        _id: new ObjectId('6853b5f6522eabb9460ce51a'),
+        username: 'userB',
+        email: 'userb@example.com',
+        password: '$2b$10$h/0zUGsbSo2iNd4GHdt2FOdXSeiVmsmRQyak2pLzeJ7lc4lb2lMly',
+        bio: '',
+        image: '',
+        skills: [],
+        followers: [],
+        following: [],
+        createdAt: 2025-06-19T07:02:14.950Z,
+        updatedAt: 2025-06-19T07:02:14.950Z,
+        __v: 0
+      }
+
+      at Object.log (tests/follow.test.js:60:13)
+
+  ● Follow/Unfollow Endpoints › should allow a user to follow another user
+
+    expect(received).toBeDefined()
+
+    Received: undefined
+
+      46 |       .send({ email: 'userA@example.com', password: 'passA' });
+      47 |     tokenA = loginA.body.token;
+    > 48 |     expect(tokenA).toBeDefined();
+         |                    ^
+      49 |     userA = await User.findOne({ email: 'userA@example.com' });
+      50 |     expect(userA).toBeDefined();
+      51 |
+
+      at Object.toBeDefined (tests/follow.test.js:48:20)
+
+  ● Follow/Unfollow Endpoints › should not allow a user to follow themselves
+
+    expect(received).toBeDefined()
+
+    Received: undefined
+
+      46 |       .send({ email: 'userA@example.com', password: 'passA' });
+      47 |     tokenA = loginA.body.token;
+    > 48 |     expect(tokenA).toBeDefined();
+         |                    ^
+      49 |     userA = await User.findOne({ email: 'userA@example.com' });
+      50 |     expect(userA).toBeDefined();
+      51 |
+
+      at Object.toBeDefined (tests/follow.test.js:48:20)
+
+  ● Follow/Unfollow Endpoints › should not allow duplicate follows
+
+    expect(received).toBeDefined()
+
+    Received: undefined
+
+      46 |       .send({ email: 'userA@example.com', password: 'passA' });
+      47 |     tokenA = loginA.body.token;
+    > 48 |     expect(tokenA).toBeDefined();
+         |                    ^
+      49 |     userA = await User.findOne({ email: 'userA@example.com' });
+      50 |     expect(userA).toBeDefined();
+      51 |
+
+      at Object.toBeDefined (tests/follow.test.js:48:20)
+
+  ● Follow/Unfollow Endpoints › should allow a user to unfollow another user
+
+    expect(received).toBeDefined()
+
+    Received: undefined
+
+      46 |       .send({ email: 'userA@example.com', password: 'passA' });
+      47 |     tokenA = loginA.body.token;
+    > 48 |     expect(tokenA).toBeDefined();
+         |                    ^
+      49 |     userA = await User.findOne({ email: 'userA@example.com' });
+      50 |     expect(userA).toBeDefined();
+      51 |
+
+      at Object.toBeDefined (tests/follow.test.js:48:20)
+
+  ● Follow/Unfollow Endpoints › should not allow a user to unfollow themselves
+
+    expect(received).toBeDefined()
+
+    Received: undefined
+
+      55 |       .send({ email: 'userB@example.com', password: 'passB' });
+      56 |     tokenB = loginB.body.token;
+    > 57 |     expect(tokenB).toBeDefined();
+         |                    ^
+      58 |     userB = await User.findOne({ email: 'userB@example.com' });
+      59 |     expect(userB).toBeDefined();
+      60 |     console.log('User B:', userB);
+
+      at Object.toBeDefined (tests/follow.test.js:57:20)
+
+  ● Follow/Unfollow Endpoints › should not allow unfollow if not already following
+
+    expect(received).toBeDefined()
+
+    Received: undefined
+
+      55 |       .send({ email: 'userB@example.com', password: 'passB' });
+      56 |     tokenB = loginB.body.token;
+    > 57 |     expect(tokenB).toBeDefined();
+         |                    ^
+      58 |     userB = await User.findOne({ email: 'userB@example.com' });
+      59 |     expect(userB).toBeDefined();
+      60 |     console.log('User B:', userB);
+
+      at Object.toBeDefined (tests/follow.test.js:57:20)
+
+FAIL tests/post_comment_moderation.test.js (5.385 s)
+  ● Console
+
+    console.log
+      Configured port: 3000
+
+      at Object.log (index.js:35:9)
+
+    console.log
+      Example app listening on port 3000
+
+      at Server.log (index.js:46:11)
+
+    console.log
+      MongoDB connected
+
+      at log (index.js:21:23)
+
+    console.log
+      getAllPosts
+
+      at log (controllers/postController.js:25:11)
+
+    console.error
+      TypeError: post.remove is not a function
+          at remove (/home/devendra/aldsf/devconnect/server/controllers/postController.js:70:16)
+          at processTicksAndRejections (node:internal/process/task_queues:95:5)
+
+      71 |     res.json({ message: 'Post deleted successfully.' });
+      72 |   } catch (err) {
+    > 73 |     console.error(err);
+         |             ^
+      74 |     res.status(500).json({ message: 'Server error.' });
+      75 |   }
+      76 | };
+
+      at error (controllers/postController.js:73:13)
+
+  ● Post CRUD › should delete own post
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 500
+
+      82 |       .delete(`/api/posts/${postId}`)
+      83 |       .set('Authorization', `Bearer ${tokenA}`);
+    > 84 |     expect(res.statusCode).toBe(200);
+         |                            ^
+      85 |   });
+      86 |
+      87 |   it('should not delete others post', async () => {
+
+      at Object.toBe (tests/post_comment_moderation.test.js:84:28)
+
+A worker process has failed to exit gracefully and has been force exited. This is likely caused by tests leaking due to improper teardown. Try running with --detectOpenHandles to find leaks. Active timers can also cause this, ensure that .unref() was called on them.
+Test Suites: 4 failed, 1 passed, 5 total
+Tests:       18 failed, 25 passed, 43 total
+Snapshots:   0 total
+Time:        6.163 s
+Ran all test suites.
