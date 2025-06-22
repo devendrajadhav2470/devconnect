@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Alert, Spinner } from 'react-bootstrap';
 import PostCard from '../components/PostCard';
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 type Post = {
   _id: string;
   content: string;
@@ -21,7 +23,7 @@ const Feed = () => {
       setLoading(true);
       setError('');
       try {
-        const res = await fetch('http://localhost:3000/api/posts');
+        const res = await fetch(`${apiUrl}/api/posts`);
         console.log('Fetching posts from API:', res.url);
         console.log("hey");
         // Debugging line

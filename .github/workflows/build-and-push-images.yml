@@ -38,5 +38,5 @@ jobs:
         with:
           context: ./client
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-client:latest
 

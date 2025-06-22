@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Alert, Button, Card, Form } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 const Login = () => {
     const [form, setForm] = useState({ email: '', password: '' });
@@ -18,7 +18,7 @@ const Login = () => {
     e.preventDefault();
     setError('');
     try {
-      const res = await fetch('http://localhost:3000/api/users/login', {
+      const res = await fetch(`${apiUrl}/api/users/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
