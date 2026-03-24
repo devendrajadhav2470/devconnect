@@ -2,8 +2,11 @@ import os
 
 
 class Config:
-    MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017/devconnect")
-    MONGO_DB_NAME = os.environ.get("MONGO_DB_NAME", "devconnect")
+    SQLALCHEMY_DATABASE_URI = os.environ.get(
+        "DATABASE_URL",
+        "postgresql://postgres:postgres@localhost:5432/devconnect",
+    )
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
     JWT_SECRET = os.environ.get("JWT_SECRET", "change-me-in-production")
     JWT_ALGORITHM = "HS256"
     JWT_EXPIRES_HOURS = 1

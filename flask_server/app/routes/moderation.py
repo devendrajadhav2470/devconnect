@@ -1,12 +1,12 @@
 from datetime import datetime, timezone
 
-from bson import ObjectId
-from bson.errors import InvalidId
 from flask import Blueprint, request, jsonify
 
 from app.auth_jwt import require_auth
-from app.db import reports as reports_col
+from app.db import db
 from app.json_util import serialize_value, user_public
+from app.models import Report, User
+from app.utils import parse_uuid
 
 bp = Blueprint("moderation", __name__, url_prefix="/api/moderation")
 
@@ -20,19 +20,20 @@ def report_post(post_id):
     reason = (data.get("reason") or "").strip()
     if not reason:
         return jsonify({"message": "Reason is required."}), 400
-    try:
-        tid = ObjectId(post_id)
-    except InvalidId:
+    tid = parse_uuid(post_id)
+    if not tid:
         return jsonify({"message": "Post not found."}), 404
-    doc = {
-        "reporter": ObjectId(g.current_user_id),
-        "targetType": "Post",
-        "targetId": tid,
-        "reason": reason,
-        "createdAt": datetime.now(timezone.utc),
-        "resolved": False,
-    }
-    reports_col().insert_one(doc)
+    uid = parse_uuid(g.current_user_id)
+    report = Report(
+        reporter_id=uid,
+        target_type="Post",
+        target_id=tid,
+        reason=reason,
+        created_at=datetime.now(timezone.utc),
+        resolved=False,
+    )
+    db.session.add(report)
+    db.session.commit()
     return jsonify({"message": "Post reported successfully."}), 201
 
 
@@ -45,42 +46,46 @@ def report_comment(post_id, comment_id):
     reason = (data.get("reason") or "").strip()
     if not reason:
         return jsonify({"message": "Reason is required."}), 400
-    try:
-        cid = ObjectId(comment_id)
-    except InvalidId:
+    cid = parse_uuid(comment_id)
+    if not cid:
         return jsonify({"message": "Server error."}), 500
-    doc = {
-        "reporter": ObjectId(g.current_user_id),
-        "targetType": "Comment",
-        "targetId": cid,
-        "reason": reason,
-        "createdAt": datetime.now(timezone.utc),
-        "resolved": False,
-    }
-    reports_col().insert_one(doc)
+    uid = parse_uuid(g.current_user_id)
+    report = Report(
+        reporter_id=uid,
+        target_type="Comment",
+        target_id=cid,
+        reason=reason,
+        created_at=datetime.now(timezone.utc),
+        resolved=False,
+    )
+    db.session.add(report)
+    db.session.commit()
     return jsonify({"message": "Comment reported successfully."}), 201
 
 
 @bp.get("/")
 @require_auth
 def get_reports():
-    cur = reports_col().find().sort("createdAt", -1)
-    out = []
-    reporter_ids = []
-    rows = list(cur)
-    for r in rows:
-        rep = r.get("reporter")
-        if rep:
-            reporter_ids.append(rep)
-    from app.db import users as users_col
-
+    rows = Report.query.order_by(Report.created_at.desc()).all()
+    reporter_ids = [r.reporter_id for r in rows if r.reporter_id]
     reporters = {}
     if reporter_ids:
-        for u in users_col().find({"_id": {"$in": reporter_ids}}):
-            reporters[str(u["_id"])] = u
+        for u in User.query.filter(User.id.in_(reporter_ids)).all():
+            reporters[str(u.id)] = u
+    out = []
     for r in rows:
-        item = serialize_value(dict(r))
-        rid = r.get("reporter")
+        item = serialize_value(
+            {
+                "_id": r.id,
+                "reporter": r.reporter_id,
+                "targetType": r.target_type,
+                "targetId": r.target_id,
+                "reason": r.reason,
+                "createdAt": r.created_at,
+                "resolved": r.resolved,
+            }
+        )
+        rid = r.reporter_id
         if rid and str(rid) in reporters:
             item["reporter"] = user_public(reporters[str(rid)], include_id_field=True)
         out.append(item)
@@ -90,13 +95,12 @@ def get_reports():
 @bp.put("/<report_id>/resolve")
 @require_auth
 def resolve_report(report_id):
-    try:
-        rid = ObjectId(report_id)
-    except InvalidId:
+    rid = parse_uuid(report_id)
+    if not rid:
         return jsonify({"message": "Report not found."}), 404
-    coll = reports_col()
-    report = coll.find_one({"_id": rid})
+    report = Report.query.get(rid)
     if not report:
         return jsonify({"message": "Report not found."}), 404
-    coll.update_one({"_id": rid}, {"$set": {"resolved": True}})
+    report.resolved = True
+    db.session.commit()
     return jsonify({"message": "Report resolved."})

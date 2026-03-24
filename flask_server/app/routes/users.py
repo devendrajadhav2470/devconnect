@@ -1,24 +1,23 @@
 import bcrypt
 import jwt
 from datetime import datetime, timezone, timedelta
-from bson import ObjectId
-from bson.errors import InvalidId
 from flask import Blueprint, request, jsonify, current_app
-from pymongo import ReturnDocument
 
-from app.db import users as users_col
 from app.auth_jwt import require_auth
-from app.json_util import user_public
+from app.db import db
+from app.json_util import user_public, user_model_to_dict
+from app.models import User, UserFollow
+from app.utils import parse_uuid
 
 bp = Blueprint("users", __name__, url_prefix="/api/users")
 
 
-def _jwt_for_user(user_doc):
+def _jwt_for_user(user: User):
     exp = datetime.now(timezone.utc) + timedelta(hours=current_app.config["JWT_EXPIRES_HOURS"])
     return jwt.encode(
         {
-            "userId": str(user_doc["_id"]),
-            "username": user_doc["username"],
+            "userId": str(user.id),
+            "username": user.username,
             "exp": exp,
         },
         current_app.config["JWT_SECRET"],
@@ -34,31 +33,21 @@ def register():
     password = data.get("password")
     if not username or not email or not password:
         return jsonify({"message": "All fields are required."}), 400
-    coll = users_col()
-    if coll.find_one({"$or": [{"username": username}, {"email": email}]}):
+    if User.query.filter((User.username == username) | (User.email == email)).first():
         return jsonify({"message": "Username or email already exists."}), 409
     hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=10)).decode("utf-8")
-    doc = {
-        "username": username,
-        "email": email,
-        "password": hashed,
-        "bio": "",
-        "image": "https://via.placeholder.com/150?text=User",
-        "skills": [],
-        "followers": [],
-        "following": [],
-        "status": "active",
-        "roles": ["user"],
-        "emailVerified": False,
-        "profileVisibility": "public",
-    }
-    result = coll.insert_one(doc)
-    uid = result.inserted_id
+    user = User(
+        username=username,
+        email=email,
+        password=hashed,
+    )
+    db.session.add(user)
+    db.session.commit()
     return (
         jsonify(
             {
                 "user": {
-                    "id": str(uid),
+                    "id": str(user.id),
                     "username": username,
                     "email": email,
                 },
@@ -76,19 +65,19 @@ def login():
     password = data.get("password")
     if not email or not password:
         return jsonify({"message": "Email and password are required."}), 400
-    user = users_col().find_one({"email": email})
+    user = User.query.filter_by(email=email).first()
     if not user:
         return jsonify({"message": "Invalid credentials."}), 401
-    if not bcrypt.checkpw(password.encode("utf-8"), user["password"].encode("utf-8")):
+    if not bcrypt.checkpw(password.encode("utf-8"), user.password.encode("utf-8")):
         return jsonify({"message": "Invalid credentials."}), 401
     token = _jwt_for_user(user)
     return jsonify(
         {
             "token": token,
             "user": {
-                "id": str(user["_id"]),
-                "username": user["username"],
-                "email": user["email"],
+                "id": str(user.id),
+                "username": user.username,
+                "email": user.email,
             },
             "message": "Login successful.",
         }
@@ -100,10 +89,13 @@ def login():
 def get_profile():
     from flask import g
 
-    user = users_col().find_one({"_id": ObjectId(g.current_user_id)})
+    uid = parse_uuid(g.current_user_id)
+    user = User.query.get(uid)
     if not user:
         return jsonify({"message": "User not found."}), 404
-    return jsonify(user_public(user))
+    followers_ids = [str(r.follower_id) for r in UserFollow.query.filter_by(following_id=user.id).all()]
+    following_ids = [str(r.following_id) for r in UserFollow.query.filter_by(follower_id=user.id).all()]
+    return jsonify(user_public(user_model_to_dict(user, followers_ids, following_ids)))
 
 
 @bp.put("/profile")
@@ -115,23 +107,18 @@ def update_profile():
     bio = data.get("bio")
     image = data.get("image")
     skills = data.get("skills")
-    update = {}
-    if bio is not None:
-        update["bio"] = bio
-    if image is not None:
-        update["image"] = image
-    if skills is not None:
-        update["skills"] = skills
-    if not update:
-        update = {}
-    user = users_col().find_one_and_update(
-        {"_id": ObjectId(g.current_user_id)},
-        {"$set": update},
-        return_document=ReturnDocument.AFTER,
-    )
+    uid = parse_uuid(g.current_user_id)
+    user = User.query.get(uid)
     if not user:
         return jsonify({"message": "User not found."}), 404
-    return jsonify({"user": user_public(user), "message": "Profile updated successfully."})
+    if bio is not None:
+        user.bio = bio
+    if image is not None:
+        user.image = image
+    if skills is not None:
+        user.skills = skills
+    db.session.commit()
+    return jsonify({"user": user_public(user_model_to_dict(user)), "message": "Profile updated successfully."})
 
 
 @bp.post("/<user_id>/follow")
@@ -142,21 +129,18 @@ def follow_user(user_id):
     current_id = g.current_user_id
     if user_id == current_id:
         return jsonify({"message": "You cannot follow yourself."}), 400
-    try:
-        tid = ObjectId(user_id)
-        cid = ObjectId(current_id)
-    except InvalidId:
+    tid = parse_uuid(user_id)
+    cid = parse_uuid(current_id)
+    if not tid or not cid:
         return jsonify({"message": "User not found."}), 404
-    coll = users_col()
-    target = coll.find_one({"_id": tid})
-    current = coll.find_one({"_id": cid})
+    target = User.query.get(tid)
+    current = User.query.get(cid)
     if not target or not current:
         return jsonify({"message": "User not found."}), 404
-    following = current.get("following") or []
-    if tid in following:
+    if UserFollow.query.filter_by(follower_id=cid, following_id=tid).first():
         return jsonify({"message": "Already following this user."}), 400
-    coll.update_one({"_id": cid}, {"$addToSet": {"following": tid}})
-    coll.update_one({"_id": tid}, {"$addToSet": {"followers": cid}})
+    db.session.add(UserFollow(follower_id=cid, following_id=tid))
+    db.session.commit()
     return jsonify({"message": "User followed successfully."})
 
 
@@ -168,57 +152,47 @@ def unfollow_user(user_id):
     current_id = g.current_user_id
     if user_id == current_id:
         return jsonify({"message": "You cannot unfollow yourself."}), 400
-    try:
-        tid = ObjectId(user_id)
-        cid = ObjectId(current_id)
-    except InvalidId:
+    tid = parse_uuid(user_id)
+    cid = parse_uuid(current_id)
+    if not tid or not cid:
         return jsonify({"message": "User not found."}), 404
-    coll = users_col()
-    target = coll.find_one({"_id": tid})
-    current = coll.find_one({"_id": cid})
+    target = User.query.get(tid)
+    current = User.query.get(cid)
     if not target or not current:
         return jsonify({"message": "User not found."}), 404
-    following = current.get("following") or []
-    if tid not in following:
+    row = UserFollow.query.filter_by(follower_id=cid, following_id=tid).first()
+    if not row:
         return jsonify({"message": "You are not following this user."}), 400
-    coll.update_one({"_id": cid}, {"$pull": {"following": tid}})
-    coll.update_one({"_id": tid}, {"$pull": {"followers": cid}})
+    db.session.delete(row)
+    db.session.commit()
     return jsonify({"message": "User unfollowed successfully."})
 
 
 @bp.get("/<user_id>/followers")
 def get_followers(user_id):
-    try:
-        uid = ObjectId(user_id)
-    except InvalidId:
+    uid = parse_uuid(user_id)
+    if not uid:
         return jsonify({"message": "User not found."}), 404
-    user = users_col().find_one({"_id": uid})
+    user = User.query.get(uid)
     if not user:
         return jsonify({"message": "User not found."}), 404
-    ids = user.get("followers") or []
+    ids = [r.follower_id for r in UserFollow.query.filter_by(following_id=user.id).all()]
     if not ids:
         return jsonify([])
-    cur = users_col().find(
-        {"_id": {"$in": ids}},
-        {"password": 0},
-    )
-    return jsonify([user_public(u, include_id_field=True) for u in cur])
+    users = User.query.filter(User.id.in_(ids)).all()
+    return jsonify([user_public(user_model_to_dict(u), include_id_field=True) for u in users])
 
 
 @bp.get("/<user_id>/following")
 def get_following(user_id):
-    try:
-        uid = ObjectId(user_id)
-    except InvalidId:
+    uid = parse_uuid(user_id)
+    if not uid:
         return jsonify({"message": "User not found."}), 404
-    user = users_col().find_one({"_id": uid})
+    user = User.query.get(uid)
     if not user:
         return jsonify({"message": "User not found."}), 404
-    ids = user.get("following") or []
+    ids = [r.following_id for r in UserFollow.query.filter_by(follower_id=user.id).all()]
     if not ids:
         return jsonify([])
-    cur = users_col().find(
-        {"_id": {"$in": ids}},
-        {"password": 0},
-    )
-    return jsonify([user_public(u, include_id_field=True) for u in cur])
+    users = User.query.filter(User.id.in_(ids)).all()
+    return jsonify([user_public(user_model_to_dict(u), include_id_field=True) for u in users])

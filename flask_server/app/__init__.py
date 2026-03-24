@@ -5,8 +5,8 @@ from flask import Flask, send_from_directory
 from flask_cors import CORS
 
 from app.config import Config
-from app.db import close_db
-
+from app.db import close_db, db
+import app.models  # noqa: F401 — register models before create_all
 
 def create_app():
     load_dotenv()
@@ -17,6 +17,10 @@ def create_app():
     upload_folder = os.environ.get("UPLOAD_FOLDER", os.path.join(basedir, "uploads"))
     app.config["UPLOAD_FOLDER"] = upload_folder
     os.makedirs(upload_folder, exist_ok=True)
+
+    db.init_app(app)
+    with app.app_context():
+        db.create_all()
 
     CORS(app)
     app.teardown_appcontext(close_db)

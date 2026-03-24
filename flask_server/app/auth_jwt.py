@@ -1,8 +1,8 @@
 import functools
 import jwt
-from bson import ObjectId
-from bson.errors import InvalidId
 from flask import request, jsonify, g, current_app
+
+from app.utils import parse_uuid
 
 
 def decode_token_valid():
@@ -30,10 +30,10 @@ def require_auth(f):
         uid = payload.get("userId")
         if not uid:
             return jsonify({"message": "Invalid or expired token."}), 401
-        try:
-            g.current_user_id = str(ObjectId(uid))
-        except (InvalidId, TypeError):
+        parsed = parse_uuid(uid)
+        if not parsed:
             return jsonify({"message": "Invalid or expired token."}), 401
+        g.current_user_id = str(parsed)
         g.jwt_payload = payload
         return f(*args, **kwargs)
 

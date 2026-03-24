@@ -2,14 +2,14 @@ import os
 import uuid
 from datetime import datetime, timezone
 
-from bson import ObjectId
-from bson.errors import InvalidId
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.utils import secure_filename
 
 from app.auth_jwt import require_auth
-from app.db import posts as posts_col, users as users_col
-from app.json_util import post_json
+from app.db import db
+from app.json_util import post_doc_from_models
+from app.models import Comment, Post, PostLike, User
+from app.utils import parse_uuid
 
 bp = Blueprint("posts", __name__, url_prefix="/api/posts")
 
@@ -23,11 +23,23 @@ def _allowed_upload(file_storage):
     return ct.startswith("image/") or ct.startswith("video/")
 
 
+def _authors_for_posts(post_list):
+    author_ids = {p.author_id for p in post_list if p.author_id}
+    if not author_ids:
+        return {}
+    users = User.query.filter(User.id.in_(author_ids)).all()
+    return {str(u.id): u for u in users}
+
+
+def _post_json_response(post: Post):
+    authors = _authors_for_posts([post])
+    like_ids = [pl.user_id for pl in PostLike.query.filter_by(post_id=post.id).all()]
+    return post_doc_from_models(post, authors, like_ids)
+
+
 @bp.post("/upload")
 @require_auth
 def upload_media():
-    from flask import g
-
     if "media" not in request.files:
         return jsonify({"message": "No file uploaded."}), 400
     f = request.files["media"]
@@ -53,44 +65,30 @@ def create_post():
     if not content:
         return jsonify({"message": "Post content is required."}), 400
     media = data.get("media") or []
+    uid = parse_uuid(g.current_user_id)
     now = datetime.now(timezone.utc)
-    doc = {
-        "content": content,
-        "media": media,
-        "author": ObjectId(g.current_user_id),
-        "postType": "text",
-        "tags": [],
-        "mentions": [],
-        "status": "published",
-        "likes": [],
-        "comments": [],
-        "commentsCount": 0,
-        "likesCount": 0,
-        "createdAt": now,
-        "updatedAt": now,
-    }
-    coll = posts_col()
-    result = coll.insert_one(doc)
-    saved = coll.find_one({"_id": result.inserted_id})
-    authors = {}
-    aid = saved.get("author")
-    if aid:
-        u = users_col().find_one({"_id": aid})
-        if u:
-            authors[str(aid)] = u
-    return jsonify(post_json(saved, authors)), 201
+    post = Post(
+        content=content,
+        media=media,
+        author_id=uid,
+        created_at=now,
+        updated_at=now,
+    )
+    db.session.add(post)
+    db.session.commit()
+    db.session.refresh(post)
+    return jsonify(_post_json_response(post)), 201
 
 
 @bp.get("/")
 def get_all_posts():
-    coll = posts_col()
-    post_list = list(coll.find().sort("createdAt", -1))
-    author_ids = list({p["author"] for p in post_list if p.get("author")})
-    authors = {}
-    if author_ids:
-        for u in users_col().find({"_id": {"$in": author_ids}}):
-            authors[str(u["_id"])] = u
-    return jsonify([post_json(p, authors) for p in post_list])
+    post_list = Post.query.order_by(Post.created_at.desc()).all()
+    authors = _authors_for_posts(post_list)
+    out = []
+    for p in post_list:
+        like_ids = [pl.user_id for pl in PostLike.query.filter_by(post_id=p.id).all()]
+        out.append(post_doc_from_models(p, authors, like_ids))
+    return jsonify(out)
 
 
 @bp.put("/<post_id>")
@@ -98,33 +96,23 @@ def get_all_posts():
 def update_post(post_id):
     from flask import g
 
-    try:
-        pid = ObjectId(post_id)
-    except InvalidId:
+    pid = parse_uuid(post_id)
+    if not pid:
         return jsonify({"message": "Post not found."}), 404
     data = request.get_json(silent=True) or {}
-    coll = posts_col()
-    post = coll.find_one({"_id": pid})
+    post = Post.query.get(pid)
     if not post:
         return jsonify({"message": "Post not found."}), 404
-    if str(post["author"]) != g.current_user_id:
+    if str(post.author_id) != g.current_user_id:
         return jsonify({"message": "Unauthorized."}), 403
-    update = {}
     if "content" in data:
-        update["content"] = data["content"]
+        post.content = data["content"]
     if "media" in data:
-        update["media"] = data["media"]
-    update["updatedAt"] = datetime.now(timezone.utc)
-    if update:
-        coll.update_one({"_id": pid}, {"$set": update})
-    updated = coll.find_one({"_id": pid})
-    authors = {}
-    aid = updated.get("author")
-    if aid:
-        u = users_col().find_one({"_id": aid})
-        if u:
-            authors[str(aid)] = u
-    return jsonify(post_json(updated, authors))
+        post.media = data["media"]
+    post.updated_at = datetime.now(timezone.utc)
+    db.session.commit()
+    db.session.refresh(post)
+    return jsonify(_post_json_response(post))
 
 
 @bp.delete("/<post_id>")
@@ -132,17 +120,16 @@ def update_post(post_id):
 def delete_post(post_id):
     from flask import g
 
-    try:
-        pid = ObjectId(post_id)
-    except InvalidId:
+    pid = parse_uuid(post_id)
+    if not pid:
         return jsonify({"message": "Post not found."}), 404
-    coll = posts_col()
-    post = coll.find_one({"_id": pid})
+    post = Post.query.get(pid)
     if not post:
         return jsonify({"message": "Post not found."}), 404
-    if str(post["author"]) != g.current_user_id:
+    if str(post.author_id) != g.current_user_id:
         return jsonify({"message": "Unauthorized."}), 403
-    coll.delete_one({"_id": pid})
+    db.session.delete(post)
+    db.session.commit()
     return jsonify({"message": "Post deleted successfully."})
 
 
@@ -151,22 +138,20 @@ def delete_post(post_id):
 def like_post(post_id):
     from flask import g
 
-    try:
-        pid = ObjectId(post_id)
-    except InvalidId:
+    pid = parse_uuid(post_id)
+    if not pid:
         return jsonify({"message": "Post not found."}), 404
-    uid = ObjectId(g.current_user_id)
-    coll = posts_col()
-    post = coll.find_one({"_id": pid})
+    uid = parse_uuid(g.current_user_id)
+    post = Post.query.get(pid)
     if not post:
         return jsonify({"message": "Post not found."}), 404
-    likes = post.get("likes") or []
-    if uid in likes:
+    if PostLike.query.filter_by(post_id=pid, user_id=uid).first():
         return jsonify({"message": "Post already liked."}), 400
-    coll.update_one({"_id": pid}, {"$addToSet": {"likes": uid}})
-    post = coll.find_one({"_id": pid})
-    n = len(post.get("likes") or [])
-    return jsonify({"message": "Post liked.", "likesCount": n})
+    db.session.add(PostLike(post_id=pid, user_id=uid))
+    post.likes_count = PostLike.query.filter_by(post_id=pid).count()
+    db.session.commit()
+    db.session.refresh(post)
+    return jsonify({"message": "Post liked.", "likesCount": post.likes_count})
 
 
 @bp.post("/<post_id>/comment")
@@ -174,37 +159,27 @@ def like_post(post_id):
 def add_comment(post_id):
     from flask import g
 
-    try:
-        pid = ObjectId(post_id)
-    except InvalidId:
+    pid = parse_uuid(post_id)
+    if not pid:
         return jsonify({"message": "Post not found."}), 404
     data = request.get_json(silent=True) or {}
     content = (data.get("content") or "").strip()
     if not content:
         return jsonify({"message": "Comment content is required."}), 400
-    coll = posts_col()
-    post = coll.find_one({"_id": pid})
+    post = Post.query.get(pid)
     if not post:
         return jsonify({"message": "Post not found."}), 404
     now = datetime.now(timezone.utc)
-    comment = {
-        "_id": ObjectId(),
-        "author": ObjectId(g.current_user_id),
-        "content": content,
-        "likes": [],
-        "parentCommentId": None,
-        "status": "active",
-        "createdAt": now,
-    }
-    coll.update_one(
-        {"_id": pid},
-        {"$push": {"comments": comment}, "$inc": {"commentsCount": 1}},
+    uid = parse_uuid(g.current_user_id)
+    comment = Comment(
+        post_id=pid,
+        author_id=uid,
+        content=content,
+        created_at=now,
     )
-    updated = coll.find_one({"_id": pid})
-    authors = {}
-    aid = updated.get("author")
-    if aid:
-        u = users_col().find_one({"_id": aid})
-        if u:
-            authors[str(aid)] = u
-    return jsonify(post_json(updated, authors)), 201
+    db.session.add(comment)
+    db.session.flush()
+    post.comments_count = Comment.query.filter_by(post_id=pid).count()
+    db.session.commit()
+    db.session.refresh(post)
+    return jsonify(_post_json_response(post)), 201
