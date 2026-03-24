@@ -1,10 +1,9 @@
 import React from 'react';
 
 interface Post {
-  author: {username: string};
-  avatar?: string;
+  author: { username?: string; image?: string | null };
   createdAt: string;
-  image: string;
+  media?: string[];
   content: string;
 }
 
@@ -13,27 +12,37 @@ interface PostCardProps {
 }
 
 const PostCard: React.FC<PostCardProps> = ({ post }) => {
+  const username = post.author?.username ?? 'User';
+  const avatar =
+    post.author?.image ||
+    'https://via.placeholder.com/40x40?text=U';
+  const created =
+    typeof post.createdAt === 'string'
+      ? new Date(post.createdAt).toLocaleString()
+      : String(post.createdAt);
+  const firstMedia = post.media?.[0];
+
   return (
     <div className="card mb-4 shadow-sm">
       {/* Header */}
       <div className="card-header d-flex align-items-center">
         <img
-          src={post.avatar || 'https://via.placeholder.com/40x40?text=U'}
+          src={avatar}
           alt="avatar"
           className="rounded-circle me-3"
           width="40"
           height="40"
         />
         <div>
-          <h6 className="mb-0">{"username"}</h6>
-          <small className="text-muted">{post.createdAt}</small>
+          <h6 className="mb-0">{username}</h6>
+          <small className="text-muted">{created}</small>
         </div>
       </div>
 
       {/* Image */}
-      {post.image && (
+      {firstMedia && (
         <img
-          src={post.image}
+          src={firstMedia}
           alt="Post content"
           className="card-img-top"
           style={{ objectFit: 'cover', maxHeight: '500px' }}

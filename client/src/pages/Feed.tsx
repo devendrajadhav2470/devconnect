@@ -1,16 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Alert, Spinner } from 'react-bootstrap';
 import PostCard from '../components/PostCard';
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+import { apiUrl } from '../config';
 
 type Post = {
   _id: string;
   content: string;
-  author: { username: string };
+  author: { username?: string; image?: string | null };
   createdAt: string;
-  image: string;
-  caption: string;
-  likes: string[];
+  media?: string[];
+  likes?: string[];
 };
 
 const Feed = () => {
@@ -23,13 +22,8 @@ const Feed = () => {
       setLoading(true);
       setError('');
       try {
-        const res = await fetch(`${apiUrl}/api/posts`);
-        console.log('Fetching posts from API:', res.url);
-        console.log("hey");
-        // Debugging line
-        console.log(res);
+        const res = await fetch(apiUrl('/api/posts'));
         const data = await res.json();
-        console.log(data);
 
         if (!res.ok) throw new Error(data.message || 'Failed to fetch posts');
         setPosts(data);

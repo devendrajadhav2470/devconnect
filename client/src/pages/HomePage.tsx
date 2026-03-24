@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Button,
   Card,
@@ -16,6 +16,8 @@ import {
   PlusCircle,
   Share
 } from 'react-bootstrap-icons';
+import { apiUrl } from '../config';
+import { useAuth } from '../contexts/AuthContext';
 
 // Define TypeScript interfaces for type safety
 interface Post {
@@ -34,73 +36,39 @@ interface Post {
   hashtags?: string[];
 }
 
+type ApiPost = {
+  _id: string;
+  content: string;
+  createdAt: string;
+  media?: string[];
+  author?: { username?: string; image?: string | null };
+  likesCount?: number;
+  commentsCount?: number;
+};
+
+function mapApiPostToPost(p: ApiPost): Post {
+  return {
+    id: String(p._id),
+    author: {
+      name: p.author?.username ?? 'User',
+      avatarUrl: p.author?.image || 'https://via.placeholder.com/150?u=1',
+      handle: `@${p.author?.username ?? 'user'}`,
+    },
+    timestamp: new Date(p.createdAt).toLocaleString(),
+    content: p.content,
+    imageUrl: p.media?.[0],
+    likes: p.likesCount ?? 0,
+    comments: p.commentsCount ?? 0,
+    shares: 0,
+  };
+}
+
 interface UserSuggestion {
   id: string;
   name: string;
   avatarUrl: string;
   title: string;
 }
-
-// Mock data for the feed and suggestions, designed for a "DevConnect" platform
-const mockPosts: Post[] = [
-  {
-    id: '1',
-    author: {
-      name: 'Jane Doe',
-      avatarUrl: 'https://i.pravatar.cc/150?img=47',
-      handle: '@janedev',
-    },
-    timestamp: '2 hours ago',
-    content: 'Just finished integrating a new CI/CD pipeline using GitHub Actions! The automation is a game changer for deployment efficiency. Highly recommend exploring it for your projects! #DevOps #GitHubActions #CI/CD',
-    likes: 120,
-    comments: 15,
-    shares: 5,
-    hashtags: ['DevOps', 'GitHubActions', 'CI/CD'],
-  },
-  {
-    id: '2',
-    author: {
-      name: 'John Smith',
-      avatarUrl: 'https://i.pravatar.cc/150?img=68',
-      handle: '@jsmith_tech',
-    },
-    timestamp: '5 hours ago',
-    content: 'Struggling with a complex React component state management. Thinking about migrating from useState to useReducer for more predictable state transitions. Any tips or best practices? #React #Frontend #JavaScript',
-    imageUrl: 'https://via.placeholder.com/600x300/e0e0e0/ffffff?text=React+Code+Snippet', // Example image
-    likes: 85,
-    comments: 20,
-    shares: 3,
-    hashtags: ['React', 'Frontend', 'JavaScript'],
-  },
-  {
-    id: '3',
-    author: {
-      name: 'Alice Wonderland',
-      avatarUrl: 'https://i.pravatar.cc/150?img=25',
-      handle: '@alice_codes',
-    },
-    timestamp: '1 day ago',
-    content: 'Explored the new features in TypeScript 5.0 today. Decorators and const type parameters are going to make a huge difference in my projects! Loving the improvements. #TypeScript #Programming #WebDev',
-    likes: 210,
-    comments: 30,
-    shares: 10,
-    hashtags: ['TypeScript', 'Programming', 'WebDev'],
-  },
-  {
-    id: '4',
-    author: {
-      name: 'Alex Doe',
-      avatarUrl: 'https://i.pravatar.cc/150?img=32', // Matches previous profile page avatar
-      handle: '@alexdoe',
-    },
-    timestamp: '2 days ago',
-    content: 'Currently working on improving authentication flow for DevConnect. Implementing JWT refresh tokens for better security and user experience. It\'s a challenging but rewarding task! #Security #Auth #DevConnect',
-    likes: 150,
-    comments: 25,
-    shares: 7,
-    hashtags: ['Security', 'Auth', 'DevConnect'],
-  },
-];
 
 const mockSuggestions: UserSuggestion[] = [
   {
@@ -167,14 +135,59 @@ const PostCard: React.FC<{ post: Post }> = ({ post }) => {
 
 const HomePage = () => {
   const [postContent, setPostContent] = useState('');
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [feedLoading, setFeedLoading] = useState(true);
+  const [feedError, setFeedError] = useState('');
+  const { token } = useAuth();
 
-  const handlePostSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setFeedLoading(true);
+      setFeedError('');
+      try {
+        const res = await fetch(apiUrl('/api/posts'));
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Failed to load posts');
+        if (!cancelled && Array.isArray(data)) {
+          setPosts(data.map(mapApiPostToPost));
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setFeedError(err instanceof Error ? err.message : 'Failed to load posts');
+        }
+      } finally {
+        if (!cancelled) setFeedLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handlePostSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (postContent.trim()) {
-      // In a real application, this would dispatch an action to add the post to the backend
-      console.log('New post submitted:', postContent);
-      setPostContent(''); // Clear the input
-      alert('Post submitted! (frontend only simulation)');
+    const trimmed = postContent.trim();
+    if (!trimmed) return;
+    if (!token) {
+      alert('Please log in to post.');
+      return;
+    }
+    try {
+      const res = await fetch(apiUrl('/api/posts'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ content: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to create post');
+      setPostContent('');
+      setPosts((prev) => [mapApiPostToPost(data as ApiPost), ...prev]);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to create post');
     }
   };
 
@@ -209,7 +222,16 @@ const HomePage = () => {
             </Card>
 
             {/* Feed of Posts */}
-            {mockPosts.map((post) => (
+            {feedLoading && (
+              <p className="text-muted">Loading feed…</p>
+            )}
+            {feedError && !feedLoading && (
+              <p className="text-danger">{feedError}</p>
+            )}
+            {!feedLoading && !feedError && posts.length === 0 && (
+              <p className="text-muted">No posts yet. Be the first to share a DevUpdate!</p>
+            )}
+            {posts.map((post) => (
               <PostCard key={post.id} post={post} />
             ))}
           </Col>

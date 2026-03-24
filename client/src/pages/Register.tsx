@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Alert, Button, Card, Form } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+import { apiUrl } from '../config';
 const Register = () => {
   const [form, setForm] = useState({ username: '', email: '', password: '' });
   const [error, setError] = useState('');
@@ -17,7 +17,7 @@ const Register = () => {
     setError('');
     setSuccess('');
     try {
-      const res = await fetch(`${apiUrl}/api/users/register`, { 
+      const res = await fetch(apiUrl('/api/users/register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
