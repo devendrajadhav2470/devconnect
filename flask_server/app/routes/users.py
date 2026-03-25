@@ -121,6 +121,19 @@ def update_profile():
     return jsonify({"user": user_public(user_model_to_dict(user)), "message": "Profile updated successfully."})
 
 
+@bp.get("/<user_id>")
+def get_user(user_id):
+    uid = parse_uuid(user_id)
+    if not uid:
+        return jsonify({"message": "User not found."}), 404
+    user = User.query.get(uid)
+    if not user:
+        return jsonify({"message": "User not found."}), 404
+    followers_ids = [str(r.follower_id) for r in UserFollow.query.filter_by(following_id=user.id).all()]
+    following_ids = [str(r.following_id) for r in UserFollow.query.filter_by(follower_id=user.id).all()]
+    return jsonify(user_public(user_model_to_dict(user, followers_ids, following_ids)))
+
+
 @bp.post("/<user_id>/follow")
 @require_auth
 def follow_user(user_id):
