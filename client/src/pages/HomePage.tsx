@@ -7,6 +7,7 @@ import {
   Form,
   Image,
   ListGroup,
+  Modal,
   Row
 } from 'react-bootstrap';
 import {
@@ -16,6 +17,7 @@ import {
   PlusCircle,
   Share
 } from 'react-bootstrap-icons';
+import { Link } from 'react-router-dom';
 import { apiUrl } from '../config';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -142,6 +144,7 @@ const HomePage = () => {
   const [feedLoading, setFeedLoading] = useState(true);
   const [feedError, setFeedError] = useState('');
   const [posting, setPosting] = useState(false);
+  const [showSignInModal, setShowSignInModal] = useState(false);
   const { token } = useAuth();
 
   useEffect(() => {
@@ -171,12 +174,12 @@ const HomePage = () => {
 
   const handlePostSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = postContent.trim();
-    if (!trimmed) return;
     if (!token) {
-      alert('Please log in to post.');
+      setShowSignInModal(true);
       return;
     }
+    const trimmed = postContent.trim();
+    if (!trimmed) return;
     setPosting(true);
     try {
       const res = await fetch(postsListUrl(), {
@@ -208,29 +211,73 @@ const HomePage = () => {
             <Card className="mb-4 shadow-sm border-0">
               <Card.Body>
                 <h5 className="mb-3">Share your DevUpdate!</h5>
+                {!token && (
+                  <p className="text-muted small mb-3">
+                    Sign in to share updates with the community.
+                  </p>
+                )}
                 <Form onSubmit={handlePostSubmit}>
                   <Form.Group className="mb-3">
                     <Form.Control
                       as="textarea"
                       rows={3}
-                      placeholder="What's on your mind, developer?"
+                      placeholder={
+                        token
+                          ? "What's on your mind, developer?"
+                          : 'Sign in to write a post…'
+                      }
                       value={postContent}
                       onChange={(e) => setPostContent(e.target.value)}
+                      disabled={!token}
                     />
                   </Form.Group>
                   <div className="d-flex justify-content-end">
-                    <Button
-                      variant="primary"
-                      type="submit"
-                      disabled={posting || !postContent.trim()}
-                    >
-                      <PlusCircle className="me-2" />
-                      {posting ? 'Posting…' : 'Post DevUpdate'}
-                    </Button>
+                    {token ? (
+                      <Button
+                        variant="primary"
+                        type="submit"
+                        disabled={posting || !postContent.trim()}
+                      >
+                        <PlusCircle className="me-2" />
+                        {posting ? 'Posting…' : 'Post DevUpdate'}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="primary"
+                        type="button"
+                        onClick={() => setShowSignInModal(true)}
+                      >
+                        <PlusCircle className="me-2" />
+                        Sign in to post
+                      </Button>
+                    )}
                   </div>
                 </Form>
               </Card.Body>
             </Card>
+
+            <Modal show={showSignInModal} onHide={() => setShowSignInModal(false)} centered>
+              <Modal.Header closeButton>
+                <Modal.Title>Sign in to post</Modal.Title>
+              </Modal.Header>
+              <Modal.Body>
+                You need to be signed in to share a DevUpdate. Log in or create an account to
+                continue.
+              </Modal.Body>
+              <Modal.Footer className="justify-content-between flex-wrap gap-2">
+                <Button variant="outline-secondary" onClick={() => setShowSignInModal(false)}>
+                  Not now
+                </Button>
+                <div className="d-flex gap-2 flex-wrap">
+                  <Button variant="outline-primary" as={Link} to="/register" onClick={() => setShowSignInModal(false)}>
+                    Register
+                  </Button>
+                  <Button variant="primary" as={Link} to="/login" onClick={() => setShowSignInModal(false)}>
+                    Log in
+                  </Button>
+                </div>
+              </Modal.Footer>
+            </Modal>
 
             {/* Feed of Posts */}
             {feedLoading && (
