@@ -1,4 +1,5 @@
 import React from 'react';
+import { getAvatarUrl } from '../avatarPlaceholder';
 
 interface Post {
   author: { username?: string; image?: string | null };
@@ -13,9 +14,7 @@ interface PostCardProps {
 
 const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const username = post.author?.username ?? 'User';
-  const avatar =
-    post.author?.image ||
-    'https://via.placeholder.com/40x40?text=U';
+  const avatar = getAvatarUrl(post.author?.image);
   const created =
     typeof post.createdAt === 'string'
       ? new Date(post.createdAt).toLocaleString()
@@ -28,7 +27,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
       <div className="card-header d-flex align-items-center">
         <img
           src={avatar}
-          alt="avatar"
+          alt=""
           className="rounded-circle me-3"
           width="40"
           height="40"

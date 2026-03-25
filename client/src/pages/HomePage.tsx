@@ -18,6 +18,7 @@ import {
   Share
 } from 'react-bootstrap-icons';
 import { Link } from 'react-router-dom';
+import { getAvatarUrl } from '../avatarPlaceholder';
 import { apiUrl } from '../config';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -56,7 +57,7 @@ function mapApiPostToPost(p: ApiPost): Post {
     id: String(p._id),
     author: {
       name: p.author?.username ?? 'User',
-      avatarUrl: p.author?.image || 'https://via.placeholder.com/150?u=1',
+      avatarUrl: getAvatarUrl(p.author?.image),
       handle: `@${p.author?.username ?? 'user'}`,
     },
     timestamp: new Date(p.createdAt).toLocaleString(),

@@ -19,14 +19,13 @@ import {
   PeopleFill,
 } from 'react-bootstrap-icons';
 import { Link } from 'react-router-dom';
+import { getAvatarUrl } from '../avatarPlaceholder';
 import { useAuth } from '../contexts/AuthContext';
-
-const avatarPlaceholder = 'https://via.placeholder.com/32?text=U';
 
 const DevConnectNavBar: React.FC = () => {
   const { user, logout } = useAuth();
   const displayName = user?.username ?? '';
-  const avatarUrl = user?.image || avatarPlaceholder;
+  const avatarUrl = getAvatarUrl(user?.image);
 
   return (
     <Navbar bg="dark" variant="dark" expand="lg" className="shadow-sm">

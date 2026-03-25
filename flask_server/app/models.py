@@ -19,7 +19,7 @@ class User(db.Model):
     email = db.Column(db.String(255), nullable=False, unique=True, index=True)
     password = db.Column(db.String(255), nullable=False)
     bio = db.Column(db.Text, default="")
-    image = db.Column(db.String(2048), default="https://via.placeholder.com/150?text=User")
+    image = db.Column(db.String(2048), default="")
     skills = db.Column(JSONB, nullable=False, default=list)
     status = db.Column(db.String(32), nullable=False, default="active")
     roles = db.Column(JSONB, nullable=False, default=lambda: ["user"])

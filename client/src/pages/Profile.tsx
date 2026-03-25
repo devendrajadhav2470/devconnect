@@ -12,6 +12,7 @@ import {
   Spinner,
 } from 'react-bootstrap';
 import { Link, useParams } from 'react-router-dom';
+import { getAvatarUrl } from '../avatarPlaceholder';
 import { apiUrl } from '../config';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -38,8 +39,6 @@ function normalizeSkill(raw: unknown, index: number): { name: string; level: num
   }
   return { name: String(raw), level: 70 };
 }
-
-const placeholderAvatar = 'https://via.placeholder.com/150?text=User';
 
 const ProfilePage = () => {
   const { id: routeId } = useParams();
@@ -102,7 +101,7 @@ const ProfilePage = () => {
   }, [routeId, token, viewMyProfile]);
 
   const displayName = profile?.username ?? '';
-  const avatarUrl = profile?.image || placeholderAvatar;
+  const avatarUrl = getAvatarUrl(profile?.image);
   const skills = (profile?.skills ?? []).map(normalizeSkill);
   const followerCount = profile?.followers?.length ?? 0;
   const followingCount = profile?.following?.length ?? 0;
