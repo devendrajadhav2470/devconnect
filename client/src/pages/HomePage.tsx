@@ -19,6 +19,9 @@ import {
 import { apiUrl } from '../config';
 import { useAuth } from '../contexts/AuthContext';
 
+/** Flask registers this route as `/api/posts/`; POST without trailing slash redirects and browsers may drop Authorization. */
+const postsListUrl = () => apiUrl('/api/posts/');
+
 // Define TypeScript interfaces for type safety
 interface Post {
   id: string;
@@ -138,6 +141,7 @@ const HomePage = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [feedLoading, setFeedLoading] = useState(true);
   const [feedError, setFeedError] = useState('');
+  const [posting, setPosting] = useState(false);
   const { token } = useAuth();
 
   useEffect(() => {
@@ -146,7 +150,7 @@ const HomePage = () => {
       setFeedLoading(true);
       setFeedError('');
       try {
-        const res = await fetch(apiUrl('/api/posts'));
+        const res = await fetch(postsListUrl());
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || 'Failed to load posts');
         if (!cancelled && Array.isArray(data)) {
@@ -173,8 +177,9 @@ const HomePage = () => {
       alert('Please log in to post.');
       return;
     }
+    setPosting(true);
     try {
-      const res = await fetch(apiUrl('/api/posts'), {
+      const res = await fetch(postsListUrl(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -188,6 +193,8 @@ const HomePage = () => {
       setPosts((prev) => [mapApiPostToPost(data as ApiPost), ...prev]);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Failed to create post');
+    } finally {
+      setPosting(false);
     }
   };
 
@@ -212,9 +219,13 @@ const HomePage = () => {
                     />
                   </Form.Group>
                   <div className="d-flex justify-content-end">
-                    <Button variant="primary" type="submit">
+                    <Button
+                      variant="primary"
+                      type="submit"
+                      disabled={posting || !postContent.trim()}
+                    >
                       <PlusCircle className="me-2" />
-                      Post DevUpdate
+                      {posting ? 'Posting…' : 'Post DevUpdate'}
                     </Button>
                   </div>
                 </Form>
